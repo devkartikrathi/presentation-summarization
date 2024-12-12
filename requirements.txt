@@ -16,3 +16,10 @@ groq
 markdown
 hf_transfer
 ollama
+streamlit
+langchain
+chromadb
+unstructured[all-docs]
+pytesseract
+Pillow
+python-dotenv
