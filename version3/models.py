@@ -1,9 +1,7 @@
 from langchain_together import TogetherEmbeddings, ChatTogether
-from langchain_ollama import ChatOllama
 from langchain_chroma import Chroma
 from langchain.retrievers import MultiVectorRetriever
 from langchain.storage import InMemoryStore
-from langchain.schema.document import Document
 
 class ModelProvider:
     @staticmethod

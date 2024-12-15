@@ -44,11 +44,11 @@ class ClinicalDocumentAssistant:
         self.rag_model.add_documents(text_documents)
         return True
 
-    async def get_multimodal_rag_response(self, query, processed_docs, selected_model_name):
+    def get_multimodal_rag_response(self, query, processed_docs, selected_model_name):
         if not processed_docs or not processed_docs.get('text_elements'):
             return "No valid document content found."
 
-        await self.add_documents_to_retriever(processed_docs)
+        self.add_documents_to_retriever(processed_docs)
 
         model_configs = self.model_provider.get_model_configs()
         model_config = model_configs.get(selected_model_name, 
@@ -80,7 +80,7 @@ Detailed Medical Interpretation:"""
             | StrOutputParser()
         )
 
-        return await retrieval_chain.ainvoke(query)
+        return retrieval_chain.invoke(query)
 
     def generate_slides(self, processed_docs, num_slides):
         model_config = self.model_provider.get_model_configs()["Meta - Llama 3.3 70B Instruct Turbo"]
@@ -174,11 +174,11 @@ Requirements:
                         with st.chat_message("assistant"):
                             with st.spinner("Generating response..."):
                                 if st.session_state.processed_docs:
-                                    response = asyncio.run(self.get_multimodal_rag_response(
+                                    response = self.get_multimodal_rag_response(
                                         prompt, 
                                         st.session_state.processed_docs, 
                                         selected_model
-                                    ))
+                                    )
                                     
                                     st.markdown(response)
                                     st.session_state.messages.append({
