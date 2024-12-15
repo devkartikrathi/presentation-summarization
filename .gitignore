@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 
 version0/figures
+version2/figures
+version2/outputs
