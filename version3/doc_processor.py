@@ -3,6 +3,7 @@ import uuid
 from unstructured.partition.pptx import partition_pptx
 from unstructured.partition.pdf import partition_pdf
 from typing import Optional, Dict, Any
+import base64
 
 class DocumentProcessor:
     def __init__(self, output_path: str):

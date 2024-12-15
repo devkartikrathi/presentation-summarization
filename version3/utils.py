@@ -9,6 +9,34 @@ from concurrent.futures import ThreadPoolExecutor
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
+from together import Together
+
+client = Together()
+
+class ImgSum:
+    def _encode_image(image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+
+    def summarize_image(encoded_image):
+        response = client.chat.completions.create(
+            model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe the contents of this image."}, 
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{encoded_image}",
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+        return response
 
 class AudioGenerator:
     def generate_audio_summary(self, text: str, output_path: str, language='en') -> Optional[str]:
