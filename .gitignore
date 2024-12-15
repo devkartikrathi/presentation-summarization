@@ -164,3 +164,6 @@ cython_debug/
 version0/figures
 version2/figures
 version2/outputs
+version3/test.txt
+version3/outputs
+version3/figures
