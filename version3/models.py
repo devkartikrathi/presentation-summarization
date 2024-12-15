@@ -8,7 +8,6 @@ from langchain.schema.document import Document
 class ModelProvider:
     @staticmethod
     def get_model_configs():
-        """Define available model configurations."""
         return {
             "Meta - Llama 3.3 70B Instruct Turbo": {
                 "provider": "together",
@@ -27,42 +26,18 @@ class ModelProvider:
                 "model": "Qwen/QwQ-32B-Preview",
                 "description": "Preview version of Qwen's powerful 32B model",
                 "type": "text"
-            },
-            "Ollama - Llama 3.2 1B": {
-                "provider": "ollama",
-                "model": "llama3:1b",
-                "description": "Lightweight model for quick responses",
-                "type": "text"
-            },
-            "Ollama - Llama 3.2 3B": {
-                "provider": "ollama",
-                "model": "llama3:3b",
-                "description": "Balanced model for general tasks",
-                "type": "text"
-            },
-            "Together - LLaMA 3.2 90B Multimodal": {
-                "provider": "together",
-                "model": "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-                "description": "Advanced multimodal model for complex medical document analysis",
-                "type": "multimodal"
             }
         }
 
     @staticmethod
     def create_model(model_config):
-        """Create a language model based on the configuration."""
         if model_config['provider'] == 'together':
             return TogetherEmbeddings(
                 model=model_config['model']
             ) if model_config['type'] == 'embeddings' else ChatTogether(
                 model=model_config['model']
             )
-        elif model_config['provider'] == 'ollama':
-            return ChatOllama(
-                model=model_config['model']
-            )
-        else:
-            raise ValueError(f"Unsupported model provider: {model_config['provider']}")
+        raise ValueError(f"Unsupported model provider: {model_config['provider']}")
 
 class RAGModel:
     def __init__(self):
@@ -83,3 +58,8 @@ class RAGModel:
                 "filter": {"domain": "medical"}
             }
         )
+
+    def add_documents(self, documents):
+        self.vectorstore.add_documents(documents)
+        doc_pairs = [(doc.metadata["doc_id"], doc.page_content) for doc in documents]
+        self.store.mset(doc_pairs)
