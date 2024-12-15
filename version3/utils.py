@@ -4,19 +4,18 @@ import io
 from gtts import gTTS
 from PIL import Image
 import streamlit as st
-from typing import List, Dict, Tuple
+from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
 
 class AudioGenerator:
-    @staticmethod
-    def generate_audio_summary(text: str, output_path: str, language='en', slow=False) -> str:
+    def generate_audio_summary(self, text: str, output_path: str, language='en') -> Optional[str]:
         try:
             os.makedirs(output_path, exist_ok=True)
             audio_filename = os.path.join(output_path, f"summary_audio_{hash(text)}.mp3")
-            tts = gTTS(text=text, lang=language, slow=slow)
+            tts = gTTS(text=text, lang=language)
             tts.save(audio_filename)
             return audio_filename
         except Exception as e:
@@ -24,29 +23,26 @@ class AudioGenerator:
             return None
 
 class ImageUtils:
-    @staticmethod
-    def decode_base64_image(encoded_string: str, max_width: int = None) -> Image:
+    def process_image(self, image_data: bytes, max_width: int = 800) -> Optional[Image.Image]:
         try:
-            image_data = base64.b64decode(encoded_string)
             image = Image.open(io.BytesIO(image_data))
-            
             if max_width and image.width > max_width:
                 aspect_ratio = image.height / image.width
                 new_height = int(max_width * aspect_ratio)
                 image = image.resize((max_width, new_height), Image.LANCZOS)
-            
             return image
         except Exception as e:
-            st.error(f"Image decoding error: {e}")
+            st.error(f"Image processing error: {e}")
             return None
 
-    @staticmethod
-    def image_to_base64(image_path: str) -> str:
+    def save_image(self, image: Image.Image, output_path: str, filename: str) -> Optional[str]:
         try:
-            with open(image_path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode('utf-8')
+            os.makedirs(output_path, exist_ok=True)
+            image_path = os.path.join(output_path, filename)
+            image.save(image_path)
+            return image_path
         except Exception as e:
-            st.error(f"Image to base64 conversion error: {e}")
+            st.error(f"Image saving error: {e}")
             return None
 
 class SlideGenerator:
@@ -57,60 +53,56 @@ class SlideGenerator:
         try:
             model_config = self.model_provider.get_model_configs()["Meta - Llama 3.3 70B Instruct Turbo"]
             llm = self.model_provider.create_model(model_config)
+            return self._generate_slide_content(text_elements, num_slides, llm)
+        except Exception as e:
+            st.error(f"Slide generation error: {e}")
+            return []
 
-            full_text = " ".join(text_elements)
-            
-            template = """Generate {num_slides} medical presentation slides following this exact format:
+    def _generate_slide_content(self, text_elements: List[str], num_slides: int, llm):
+        full_text = " ".join(text_elements)
+        template = """Generate {num_slides} medical presentation slides following this exact format:
 
-DOCUMENT CONTENT: {text}
-
-REQUIRED FORMAT FOR EACH SLIDE:
 Slide [number]: [Title]
    •    [Key Point 1]
    •    [Key Point 2]
    •    [Key Point 3]
+
+DOCUMENT CONTENT: {text}
 
 REQUIREMENTS:
 1. Follow the exact format shown above
 2. Use medical terminology accurately
 3. Ensure logical flow between slides
 4. Include only the most important information
-5. Keep bullet points concise and clear
+5. Keep bullet points concise and clear"""
 
-Generate the slides:"""
-
-            prompt = ChatPromptTemplate.from_template(template)
-            
-            chain = (
-                {"text": RunnablePassthrough(), "num_slides": RunnablePassthrough()}
-                | prompt
-                | llm
-                | StrOutputParser()
-            )
-
-            slides_content = chain.invoke({"text": full_text, "num_slides": num_slides})
-            return self._parse_slides(slides_content)
-
-        except Exception as e:
-            st.error(f"Error generating slides: {e}")
-            return []
-
-    def _parse_slides(self, slides_content: str) -> List[Dict[str, str]]:
-        slides = []
-        current_slide = {"content": ""}
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = (
+            {"text": RunnablePassthrough(), "num_slides": RunnablePassthrough()}
+            | prompt
+            | llm
+            | StrOutputParser()
+        )
         
-        for line in slides_content.split('\n'):
+        slides_content = chain.invoke({"text": full_text, "num_slides": num_slides})
+        return self._parse_slides(slides_content)
+
+    def _parse_slides(self, content: str) -> List[Dict[str, str]]:
+        slides = []
+        current_slide = None
+        
+        for line in content.split('\n'):
             line = line.strip()
             if line.startswith('Slide'):
-                if current_slide["content"]:
+                if current_slide:
                     slides.append(current_slide)
-                current_slide = {"content": line + "\n"}
-            elif line.startswith('   •'):
-                current_slide["content"] += line + "\n"
+                current_slide = {"title": line, "points": []}
+            elif line.startswith('•') and current_slide:
+                current_slide["points"].append(line)
         
-        if current_slide["content"]:
+        if current_slide:
             slides.append(current_slide)
-        
+            
         return slides
 
 class SummaryProcessor:
@@ -119,10 +111,22 @@ class SummaryProcessor:
         self.audio_generator = audio_generator
         self.executor = ThreadPoolExecutor(max_workers=2)
 
-    async def generate_summary_async(self, text_elements: List[str], output_path: str) -> Tuple[str, str]:
-        model_config = self.model_provider.get_model_configs()["Meta - Llama 3.3 70B Instruct Turbo"]
-        llm = self.model_provider.create_model(model_config)
+    def generate_summary(self, text_elements: List[str], output_path: str) -> Tuple[str, str]:
+        """Generate text summary and audio summary."""
+        try:
+            model_config = self.model_provider.get_model_configs()["Meta - Llama 3.3 70B Instruct Turbo"]
+            llm = self.model_provider.create_model(model_config)
 
+            text_summary = self._generate_text_summary(text_elements, llm)
+            audio_path = self.audio_generator.generate_audio_summary(text_summary, output_path)
+
+            return text_summary, audio_path
+        except Exception as e:
+            st.error(f"Summary generation error: {e}")
+            return None, None
+
+    def _generate_text_summary(self, text_elements: List[str], llm) -> str:
+        """Generate text summary using the LLM."""
         full_text = " ".join(text_elements)
         
         template = """Generate a concise yet comprehensive medical document summary:
@@ -144,12 +148,9 @@ Core Concepts:
 • [Essential medical concepts]
 
 Clinical Implications:
-• [Important clinical considerations]
-
-Please provide the summary:"""
+• [Important clinical considerations]"""
 
         prompt = ChatPromptTemplate.from_template(template)
-        
         chain = (
             {"text": RunnablePassthrough()}
             | prompt
@@ -157,15 +158,4 @@ Please provide the summary:"""
             | StrOutputParser()
         )
 
-        text_summary = await chain.ainvoke(full_text)
-        
-        import asyncio
-        loop = asyncio.get_event_loop()
-        audio_path = await loop.run_in_executor(
-            self.executor,
-            self.audio_generator.generate_audio_summary,
-            text_summary,
-            output_path
-        )
-
-        return text_summary, audio_path
+        return chain.invoke(full_text)
