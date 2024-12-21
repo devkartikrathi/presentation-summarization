@@ -168,3 +168,5 @@ version3/test.txt
 version3/outputs
 version3/figures
 Multi_Modal_RAG_UnstructuredIO.ipynb
+chroma_db
+temp_files
