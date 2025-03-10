@@ -323,7 +323,7 @@ def main():
                 
                 with st.chat_message("assistant"):
                     texts, images = st.session_state.rag_model.get_relevant_context(prompt)
-                    
+                    print(texts, images)
                     if not texts:
                         response = "I don't have enough context to answer this question."
                     else:
